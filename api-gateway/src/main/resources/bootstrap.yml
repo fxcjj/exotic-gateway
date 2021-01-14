@@ -1,0 +1,84 @@
+server:
+  port: 9768
+
+service-url:
+  user1-service: http://localhost:9766
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # 路由的ID
+        - id: path_route
+          # 匹配后的路由地址
+#          uri: ${service-url.user1-service}
+          # 根据微服务名称拉取请求路径
+          uri: lb://user-service
+          # 断言
+          predicates:
+            # 路由相匹配的进行路由, 转发地址格式为 uri/test/test1
+            - Path=/api/v1/test/test1
+            # 在指定时间之后的请求才会被转发
+#            - After=2021-01-14T16:37:00+08:00[Asia/Shanghai]
+
+            # 在指定时间之前的请求才会被转发
+#            - Before=2021-01-14T16:39:00+08:00[Asia/Shanghai]
+
+            # 在指定时间区间内的请求才会被转发
+            - Between=2021-01-14T16:39:00+08:00[Asia/Shanghai],2021-05-14T16:41:00+08:00[Asia/Shanghai]
+
+            # 带有cookie为 jargon=helmet 的请求可以匹配该路由
+            # 接收两个参数，一个是 Cookie name , 一个是正则表达式，路由规则会通过获取对应的 Cookie name 值和正则表达式去匹配，如果匹配上就会执行路由，如果没有匹配上则不执行。
+#            - Cookie=jargon,helmet
+            # 接收两个参数，一个是 Cookie name , 一个是正则表达式，X-Request-Id:123
+            - Header=X-Request-Id, \d+
+            # 带有指定Host的请求会匹配该路由
+            - Host=**.haha.com
+          filters:
+            # 给请求添加参数的过滤器
+            - AddRequestParameter=red, blue
+            # 对指定数量的路径前缀进行去除的过滤器，当匹配到 /api/v1/test/test1 时，实际会转发到 uri/test/test1
+            - StripPrefix=2
+        - id: path_route3
+          # 根据微服务名称拉取请求路径
+          uri: lb://user-service
+          predicates:
+            # 路由相匹配的进行路由, 转发地址格式为 uri/test/test1
+            - Path=/test3
+          filters:
+            # 添加前缀
+            - PrefixPath=/test
+        - id: path_route-rate-limiter
+          uri: lb://user-service
+          predicates:
+            - Method=GET
+          filters:
+            - name: RequestRateLimiter
+              args:
+                # 每秒允许处理的请求数量
+                redis-rate-limiter.replenishRate: 1
+                # 每秒最大处理的请求数量
+                redis-rate-limiter.burstCapacity: 2
+                # 限流策略，对应策略的Bean
+                key-resolver: "#{@ipKeyResolver}"
+      discovery:
+        locator:
+          # 开启根据微服务名称自动转发
+          enabled: true
+          # 微服务名称小写呈现
+          lower-case-service-id: true
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:9761/eureka/
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+logging:
+  level:
+    org: debug
