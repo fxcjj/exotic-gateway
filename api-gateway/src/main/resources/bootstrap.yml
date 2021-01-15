@@ -7,14 +7,41 @@ service-url:
 spring:
   application:
     name: api-gateway
+  redis:
+    # redis服务器地址
+    host: 192.168.6.131
+    # redis访问端口
+    port: 6379
+    # 数据库索引，默认为0
+    database: 4
+    # redis服务器连接密码
+#    password: root
+    # 连接超时时间（毫秒）
+    timeout: 10000ms
+    # lettuce客户端配置， 加入下面配置 报错：Caused by: java.lang.ClassNotFoundException: org.apache.commons.pool2.impl.GenericObjectPoolConfig
+#    lettuce:
+#      pool:
+#        # 连接池中可分配的最大连接数
+#        # Maximum number of connections that can be allocated by the pool at a given
+#        # time. Use a negative value for no limit.
+#        max-active: 20
+#        # 连接池中分配连接时的最大阻塞时间，使用负数无限阻塞
+#        # Maximum amount of time a connection allocation should block before throwing an
+#        # exception when the pool is exhausted. Use a negative value to block indefinitely.
+#        max-wait: -1ms
+#        # 连接池中最大空闲连接，默认8
+#        max-idle: 8
+#        # 连接池中最小空闲连接，默认0
+#        min-idle: 5
   cloud:
     gateway:
       routes:
+        # 测试相关参数
         # 路由的ID
         - id: path_route
           # 匹配后的路由地址
 #          uri: ${service-url.user1-service}
-          # 根据微服务名称拉取请求路径
+          # 使用lb协议，才能启用Gateway的负载均衡功能，根据微服务名称拉取请求路径
           uri: lb://user-service
           # 断言
           predicates:
@@ -41,6 +68,8 @@ spring:
             - AddRequestParameter=red, blue
             # 对指定数量的路径前缀进行去除的过滤器，当匹配到 /api/v1/test/test1 时，实际会转发到 uri/test/test1
             - StripPrefix=2
+
+        # 测试添加uri前缀
         - id: path_route3
           # 根据微服务名称拉取请求路径
           uri: lb://user-service
@@ -50,19 +79,40 @@ spring:
           filters:
             # 添加前缀
             - PrefixPath=/test
+
+        # 测试限流
         - id: path_route-rate-limiter
           uri: lb://user-service
           predicates:
+            - Path=/test/test4
             - Method=GET
           filters:
             - name: RequestRateLimiter
               args:
-                # 每秒允许处理的请求数量
+                # 使用SpEL从Spring容器中获取对应的限流策略Bean
+#                key-resolver: "#{@ipKeyResolver}"
+                key-resolver: "#{@userKeyResolver}"
+                # 令牌桶每秒填充的速率，即每秒允许处理的请求数量
                 redis-rate-limiter.replenishRate: 1
-                # 每秒最大处理的请求数量
+                # 令牌桶的容量，即每秒最大处理的请求数量（允许一定程度的突发调用）
                 redis-rate-limiter.burstCapacity: 2
-                # 限流策略，对应策略的Bean
-                key-resolver: "#{@ipKeyResolver}"
+
+        # 测试重试
+        - id: path_route-retry
+          uri: lb://user-service
+          predicates:
+            - Path=/test/test5
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 1 #需要进行重试的次数
+                statuses: BAD_GATEWAY #返回哪个状态码需要进行重试，返回状态码为5XX进行重试
+                backoff:
+                  firstBackoff: 10ms
+                  maxBackoff: 50ms
+                  factor: 2
+                  basedOnPreviousValue: false
       discovery:
         locator:
           # 开启根据微服务名称自动转发
