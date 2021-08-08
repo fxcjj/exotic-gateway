@@ -1,6 +1,7 @@
 server:
   port: 9768
 
+# 自定义变量
 service-url:
   user1-service: http://localhost:9766
 
@@ -59,7 +60,7 @@ spring:
             # 带有cookie为 jargon=helmet 的请求可以匹配该路由
             # 接收两个参数，一个是 Cookie name , 一个是正则表达式，路由规则会通过获取对应的 Cookie name 值和正则表达式去匹配，如果匹配上就会执行路由，如果没有匹配上则不执行。
 #            - Cookie=jargon,helmet
-            # 接收两个参数，一个是 Cookie name , 一个是正则表达式，X-Request-Id:123
+            # 接收两个参数，一个是 Cookie name , 一个是正则表达式，如：X-Request-Id:123
             - Header=X-Request-Id, \d+
             # 带有指定Host的请求会匹配该路由
             - Host=**.haha.com
@@ -122,13 +123,17 @@ spring:
 eureka:
   client:
     service-url:
+      # 将服务注册到eureka
       defaultZone: http://localhost:9761/eureka/
+
+# 相关端点管理
 management:
   endpoints:
     web:
       exposure:
         include: "*"
 
+# log相关配置
 logging:
   level:
     org: debug
